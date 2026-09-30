@@ -4,7 +4,7 @@
 
 - Click the profile icon (top right) → **Profile** → scroll to the **API Access** section — this is where the token lives.
 
-https://github.com/Ramkumar2545/OPENCTI-INTERGATED-WITH-WAZUH-WINDOW-AND-LINUX-ENDPOINTS/blob/5c8a8e6e8579153e221963fe9bfe63aa8e81a248/ss/1.png
+ss/1.png
 
 - Under **API Access**, click **Generate Token** to create a new token for this integration, rather than reusing your personal login session for a script.
 - Give it a clear **Name** (e.g. `wazuh-opencti-integration`) so it's identifiable later in the token table alongside any others (like your `Base token`).

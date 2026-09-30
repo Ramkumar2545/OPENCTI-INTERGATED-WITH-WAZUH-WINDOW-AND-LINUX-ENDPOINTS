@@ -23,3 +23,6 @@ for why). Files are listed below in the order you should work through them.
 
 Screenshots referenced by the markdown files above live in [`ss/`](ss) (`ss/1.png` – `ss/9.png`).
 
+How the alert → sighting flow works
+
+Whenever a Wazuh alert matches one of the IOC-correlation rules in opencti-endpoint-ioc-rules.xml, the manager fires the custom-opencti integration (wired up in phase4-ossec-conf.md's <integration> block), which runs custom-opencti.py against that alert. The script extracts the IOC (IP, domain, URL, or hash) from the alert, queries it against OpenCTI over the GraphQL API, and — if OpenCTI already knows about that indicator — writes a sighting back to it. In other words: the moment a user sets an alert/watch on an IOC in OpenCTI, any matching activity Wazuh later observes on a monitored endpoint gets reported back as a sighting on that same indicator in OpenCTI, closing the loop between "we're watching for this" and "we saw it happen here."

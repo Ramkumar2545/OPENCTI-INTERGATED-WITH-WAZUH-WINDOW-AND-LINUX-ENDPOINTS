@@ -1,0 +1,421 @@
+<!-- ============================================================
+     Wazuh Local Rules — OpenCTI custom-opencti.py (native-fields edition)
+     IOC-Correlated Rules — FIM / Vuln / Auth / DNS / Firewall / Web-log
+     Author: Ram Kumar G (IT Fortress SOC) (c) 2026
+     File  : opencti-endpoint-ioc-rules.xml
+     Version: v2.6 (Syntax Fixes for Ubuntu & PCRE2)
+     ============================================================ -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 0 — Source Visibility Passthrough                  -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="windows,powershell,process_creation,auditd,">
+
+  <rule id="100690" level="3">
+    <if_sid>91802</if_sid>
+    <description>Windows: PowerShell script block logged - $(win.eventdata.ScriptBlockText)</description>
+    <options>no_full_log</options>
+    <group>windows,powershell,powershell_scriptblock,</group>
+  </rule>
+
+  <rule id="100691" level="3">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4688$</field>
+    <description>Windows: Process created - $(win.eventdata.newProcessName)</description>
+    <options>no_full_log</options>
+    <group>windows,process_creation,windows_process_creation,</group>
+  </rule>
+
+  <rule id="100692" level="3">
+    <if_group>audit</if_group>
+    <field name="audit.key">^command_monitor$</field>
+    <description>Linux: auditd monitored binary executed - $(audit.exe)</description>
+    <options>no_full_log</options>
+    <group>linux,auditd,linux_process_creation,</group>
+  </rule>
+
+</group>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 1 — OpenCTI Base Anchor (Required Parent)          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="threat_intel,opencti,">
+
+  <rule id="100700" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^opencti$</field>
+    <description>OpenCTI: Enrichment Result Received (anchor)</description>
+    <options>no_log</options>
+    <group>opencti,</group>
+  </rule>
+
+  <rule id="100701" level="5">
+    <if_sid>100700</if_sid>
+    <field name="opencti.error">.+</field>
+    <description>OpenCTI Error: API Connection or Parse Failure</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_error,</group>
+  </rule>
+
+  <rule id="100702" level="12">
+    <if_sid>100700</if_sid>
+    <field name="opencti.event_type" type="pcre2">^indicator_(?:partial_)?pattern_match$</field>
+    <description>OpenCTI Alert: Malicious $(opencti.ioc_type) [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - Target: $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_alert,opencti_alert_ind,</group>
+  </rule>
+
+  <rule id="100703" level="12">
+    <if_sid>100700</if_sid>
+    <field name="opencti.event_type" type="pcre2">^observable_with_(?:related_)?indicator$</field>
+    <description>OpenCTI Alert: Observable + Indicator Match: $(opencti.ioc_type) [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - Target: $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_alert,opencti_alert_ind,</group>
+  </rule>
+
+  <rule id="100704" level="10">
+    <if_sid>100700</if_sid>
+    <field name="opencti.event_type" type="pcre2">^observable_without_indicator$</field>
+    <description>OpenCTI Alert: $(opencti.ioc_type) in Threat Intel (No Indicator) [Score: $(opencti.observable.x_opencti_score)] [Author: $(opencti.author_name)] - Target: $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_alert,opencti_alert_obs,</group>
+  </rule>
+
+  <rule id="100705" level="13" frequency="5" timeframe="600">
+    <if_matched_sid>100701</if_matched_sid>
+    <description>OpenCTI Integration Health: 5+ API/Connection Errors in 10 Minutes - Enrichment Likely Down</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_health,</group>
+  </rule>
+
+</group>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 2 — Score Escalation                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="opencti,opencti_high,">
+
+  <rule id="100710" level="14">
+    <if_group>opencti_alert_ind</if_group>
+    <field name="opencti.indicator.x_opencti_score" type="pcre2">^(7[0-9]|8[0-9]|9[0-9]|100)$</field>
+    <description>OpenCTI Critical: High-Score $(opencti.ioc_type) Indicator Match [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - Target: $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_high,</group>
+  </rule>
+
+  <rule id="100711" level="14">
+    <if_group>opencti_alert_obs</if_group>
+    <field name="opencti.observable.x_opencti_score" type="pcre2">^(7[0-9]|8[0-9]|9[0-9]|100)$</field>
+    <description>OpenCTI Critical: High-Score $(opencti.ioc_type) Observable Match [Score: $(opencti.observable.x_opencti_score)] [Author: $(opencti.author_name)] - Target: $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_high,</group>
+  </rule>
+
+  <rule id="100712" level="15">
+    <if_sid>100710,100711</if_sid>
+    <description>OpenCTI CRITICAL [Score>=70]: Maximum Confidence Malicious $(opencti.ioc_type) [Author: $(opencti.author_name)] - Target: $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_high,opencti_critical,</group>
+  </rule>
+
+</group>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 3 — IoC Type-Specific Rules                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="opencti,opencti_ip,">
+
+  <rule id="100720" level="12">
+    <if_group>opencti_alert_ind</if_group>
+    <field name="opencti.ioc_type" type="pcre2">(?i)^ipv[46]$</field>
+    <description>OpenCTI Alert: Malicious IP [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_ip,</group>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+  </rule>
+
+  <rule id="100721" level="12">
+    <if_group>opencti_alert_obs</if_group>
+    <field name="opencti.type" type="pcre2">(?i)^IPv[46]-Addr$</field>
+    <description>OpenCTI Alert: Malicious IP Observable [Score: $(opencti.observable.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_ip,</group>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<group name="opencti,opencti_domain,">
+
+  <rule id="100725" level="12">
+    <if_group>opencti_alert_ind</if_group>
+    <field name="opencti.ioc_type" type="pcre2">(?i)^(?:domain|url)$</field>
+    <description>OpenCTI Alert: Malicious $(opencti.ioc_type) [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_domain,</group>
+    <mitre>
+      <id>T1071.001</id>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100726" level="12">
+    <if_group>opencti_alert_obs</if_group>
+    <field name="opencti.type" type="pcre2">(?i)^(?:Domain-Name|Hostname|Url)$</field>
+    <description>OpenCTI Alert: Malicious $(opencti.type) Observable [Score: $(opencti.observable.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_domain,</group>
+    <mitre>
+      <id>T1071.001</id>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<group name="opencti,opencti_hash,">
+
+  <rule id="100730" level="12">
+    <if_group>opencti_alert_ind</if_group>
+    <field name="opencti.ioc_type" type="pcre2">(?i)^(?:sha256|sha1|md5)$</field>
+    <description>OpenCTI Alert: Malicious File Hash ($(opencti.ioc_type), FIM) [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_hash,</group>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+  </rule>
+
+  <rule id="100731" level="12">
+    <if_group>opencti_alert_obs</if_group>
+    <field name="opencti.type" type="pcre2">(?i)^(?:StixFile|Artifact)$</field>
+    <description>OpenCTI Alert: Malicious File Hash Observable (FIM) [Score: $(opencti.observable.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_hash,</group>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+  </rule>
+
+  <rule id="100732" level="10">
+    <if_group>opencti_alert</if_group>
+    <field name="opencti.ioc_type" type="pcre2">^(?:filename|windows-registry-key)$</field>
+    <description>OpenCTI Alert: Malicious $(opencti.ioc_type) Match (FIM) [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_hash,</group>
+  </rule>
+
+</group>
+
+<group name="opencti,opencti_vuln,">
+
+  <rule id="100735" level="12">
+    <if_group>opencti_alert_ind</if_group>
+    <field name="opencti.ioc_type" type="pcre2">(?i)^vulnerability$</field>
+    <description>OpenCTI Alert: CVE Matched in Threat Intel [Score: $(opencti.indicator.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_vuln,</group>
+    <mitre>
+      <id>T1588.006</id>
+    </mitre>
+  </rule>
+
+  <rule id="100736" level="12">
+    <if_group>opencti_alert_obs</if_group>
+    <field name="opencti.type" type="pcre2">(?i)^Vulnerability$</field>
+    <description>OpenCTI Alert: CVE Observable Matched in Threat Intel [Score: $(opencti.observable.x_opencti_score)] [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_vuln,</group>
+    <mitre>
+      <id>T1588.006</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 4 — Native log_source Correlation Rules            -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="opencti,opencti_native_context,">
+
+  <rule id="101300" level="12">
+    <if_sid>100720,100721</if_sid>
+    <field name="opencti.source.log_source">^windows_logon$</field>
+    <description>OpenCTI Alert: Malicious IP Matched Windows Logon Event (4624/4625) [Author: $(opencti.author_name)] - $(opencti.source.ipAddress)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_native_context,opencti_windows_logon,</group>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+
+  <rule id="101301" level="12">
+    <if_sid>100720,100721</if_sid>
+    <field name="opencti.source.log_source">^linux_auth$</field>
+    <description>OpenCTI Alert: Malicious IP Matched Linux Authentication Log [Author: $(opencti.author_name)] - $(opencti.source.srcip)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_native_context,opencti_linux_auth,</group>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <rule id="101302" level="12">
+    <if_sid>100725,100726</if_sid>
+    <field name="opencti.source.log_source">^web_log$</field>
+    <description>OpenCTI Alert: Malicious $(opencti.ioc_type) Matched Web Log Entry [Author: $(opencti.author_name)] - $(opencti.source.url)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_native_context,opencti_web_log,</group>
+    <mitre>
+      <id>T1071.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="101303" level="12">
+    <if_sid>100720,100721,100725,100726</if_sid>
+    <field name="opencti.source.log_source">^dns_log$</field>
+    <description>OpenCTI Alert: DNS Query/Answer Matched Threat Intel [Author: $(opencti.author_name)] - $(opencti.source.dns_query)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_native_context,opencti_dns,</group>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="101304" level="13">
+    <if_sid>100720,100721</if_sid>
+    <field name="opencti.source.log_source">^firewall$</field>
+    <description>OpenCTI Alert: Firewall-Permitted Outbound Connection Matched Threat Intel [Author: $(opencti.author_name)] - $(opencti.source.dstip)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_native_context,opencti_firewall,</group>
+    <mitre>
+      <id>T1071</id>
+      <id>T1041</id>
+    </mitre>
+  </rule>
+
+  <rule id="101305" level="13">
+    <if_sid>100720,100721,100725,100726,100730,100731,100735,100736</if_sid>
+    <field name="opencti.source.log_source" type="pcre2">^(?:powershell_script|windows_process_creation|linux_process_creation)$</field>
+    <description>OpenCTI Alert: Malicious $(opencti.ioc_type) in Command/Script Execution [Author: $(opencti.author_name)] - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_native_context,opencti_process_creation,opencti_powershell,</group>
+    <mitre>
+      <id>T1059</id>
+      <id>T1059.001</id>
+      <id>T1071</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 5 — Sighting Write-Back Confirmation               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="opencti,opencti_sighting,">
+
+  <rule id="100714" level="3">
+    <if_group>opencti_alert</if_group>
+    <field name="opencti.sighting_id" type="pcre2">.+</field>
+    <description>OpenCTI: Sighting Recorded - $(opencti.query_values) [Author: $(opencti.author_name)] (Sighting ID: $(opencti.sighting_id))</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_sighting,opencti_sighting_confirmed,</group>
+  </rule>
+
+</group>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  SECTION 6 — Local Heuristics (OpenCTI had no match at all)  -->
+<!--  Fires only when custom-opencti.py's evaluate_local_heuristic()  -->
+<!--  found something — i.e. OpenCTI returned neither an indicator   -->
+<!--  nor an observable for this IOC. No CDB list, no automation     -->
+<!--  platform involved anywhere in this block.                      -->
+<!--  ID block reserved: 101400-101410 (clear of 100690-100736 and   -->
+<!--  101300-101305 used above).                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<group name="opencti,opencti_local_heuristic,">
+
+  <rule id="101400" level="9">
+    <if_sid>100700</if_sid>
+    <field name="opencti.event_type">^local_heuristic_match$</field>
+    <description>OpenCTI Add-on: Local heuristic flagged $(opencti.ioc_type) not present in threat intel - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+  </rule>
+
+  <rule id="101401" level="10">
+    <if_sid>101400</if_sid>
+    <field name="opencti.local.check">suspicious_tld</field>
+    <description>OpenCTI Add-on: Domain uses high-abuse TLD - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+  </rule>
+
+  <rule id="101402" level="10">
+    <if_sid>101400</if_sid>
+    <field name="opencti.local.check">dynamic_dns_provider</field>
+    <description>OpenCTI Add-on: Endpoint contacted free dynamic-DNS/tunneling domain - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+    <mitre>
+      <id>T1568</id>
+    </mitre>
+  </rule>
+
+  <rule id="101403" level="12">
+    <if_sid>101400</if_sid>
+    <field name="opencti.local.check">dga_heuristic_score</field>
+    <description>OpenCTI Add-on: High-entropy / DGA-scored domain - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+    <mitre>
+      <id>T1568.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="101404" level="9">
+    <if_sid>101400</if_sid>
+    <field name="opencti.local.check">raw_ip_url</field>
+    <description>OpenCTI Add-on: URL points directly at a raw IP instead of a domain - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+    <mitre>
+      <id>T1102</id>
+    </mitre>
+  </rule>
+
+  <rule id="101405" level="8">
+    <if_sid>101400</if_sid>
+    <field name="opencti.local.check">punycode_homograph</field>
+    <description>OpenCTI Add-on: Punycode/homograph domain pattern - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+    <mitre>
+      <id>T1583.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="101406" level="9">
+    <if_sid>101400</if_sid>
+    <field name="opencti.local.check">long_subdomain_label</field>
+    <description>OpenCTI Add-on: Abnormally long DNS subdomain label - possible tunneling - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="101407" level="13">
+    <if_matched_sid>101400</if_matched_sid>
+    <field name="opencti.local.first_contact">^true$</field>
+    <description>OpenCTI Add-on: First-ever contact with an already-flagged indicator - $(opencti.query_values)</description>
+    <options>no_full_log</options>
+    <group>opencti,opencti_local_heuristic,</group>
+  </rule>
+
+</group>

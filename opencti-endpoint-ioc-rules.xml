@@ -1,7 +1,7 @@
 <!-- ============================================================
      Wazuh Local Rules — OpenCTI custom-opencti.py (native-fields edition)
      IOC-Correlated Rules — FIM / Vuln / Auth / DNS / Firewall / Web-log
-     Author: Ram Kumar G (IT Fortress SOC) (c) 2026
+     Author: Ram Kumar G  (c) 2026
      File  : opencti-endpoint-ioc-rules.xml
      Version: v2.6 (Syntax Fixes for Ubuntu & PCRE2)
      ============================================================ -->

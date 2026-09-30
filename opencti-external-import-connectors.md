@@ -73,13 +73,13 @@ Free key issued instantly at bazaar.abuse.ch — no approval wait.
 
 ## Deployment steps (Portainer / Docker)
 
-
-![Profile menu → Profile](ss/1.png)
-
-![API Access panel — OpenCTI version, API key, required headers](ss/2.png)
-
 1. Open the connector's folder on GitHub (e.g. `external-import/alienvault`) and copy its `docker-compose.yml`.
 2. In Portainer, open your OpenCTI stack editor (or edit your local `docker-compose.yml`).
 3. Paste the connector block in as a new service, keeping YAML indentation consistent with the rest of the file.
 4. Replace `OPENCTI_URL`, `OPENCTI_TOKEN`, `CONNECTOR_ID`, and the provider API key.
 5. Redeploy the stack, then check **Data > Connectors** in the OpenCTI UI to confirm the connector shows "Active" and starts producing work.
+
+
+![Profile menu → Profile](ss/1.png)
+
+![API Access panel — OpenCTI version, API key, required headers](ss/2.png)

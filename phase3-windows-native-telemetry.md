@@ -33,7 +33,7 @@ Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlo
 # Expected output: EnableScriptBlockLogging : 1
 ```
 
-![New-Item + New-ItemProperty creating the ScriptBlockLogging registry key](phase3-native-telemetry-assets/01-scriptblocklogging-registry.png)
+![New-Item + New-ItemProperty creating the ScriptBlockLogging registry key](ss/4.png)
 
 Fleet-wide via GPO instead: `Computer Configuration → Administrative Templates → Windows Components → Windows PowerShell → Turn on PowerShell Script Block Logging`
 
@@ -62,9 +62,9 @@ auditpol /get /subcategory:"Process Creation"
 Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit"
 ```
 
-![auditpol /set /subcategory:"Process Creation" /success:enable — command executed successfully](phase3-native-telemetry-assets/02-auditpol-process-creation-enable.png)
+![auditpol /set /subcategory:"Process Creation" /success:enable — command executed successfully](ss/6.png)
 
-![New-ItemProperty setting ProcessCreationIncludeCmdLine_Enabled = 1](phase3-native-telemetry-assets/03-processcreationincludecmdline-registry.png)
+![New-ItemProperty setting ProcessCreationIncludeCmdLine_Enabled = 1](ss/8.png)
 
 ## 3. Windows Logon Auditing (Events 4624 / 4625)
 
@@ -123,7 +123,7 @@ Get-Service -Name wazuh   # confirm Status = Running
 | Agent watching PowerShell channel | `Select-String -Path "C:\Program Files (x86)\ossec-agent\ossec.conf" -Pattern "Microsoft-Windows-PowerShell"` | Match found |
 | Agent service running | `Get-Service -Name wazuh` | Status = Running |
 
-![auditpol /get + Get-ItemProperty confirming Process Creation auditing and the CmdLine registry key](phase3-native-telemetry-assets/04-verification-auditpol-get.png)
+![auditpol /get + Get-ItemProperty confirming Process Creation auditing and the CmdLine registry key](ss/9.png)
 
 ## What this page deliberately does NOT cover
 

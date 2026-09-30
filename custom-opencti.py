@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # custom-opencti.py — native-fields edition (v2.3)
 # Dynamic Agent Sighting (No Wazuh Ignoring)
-# Author: Ram Kumar G (IT Fortress SOC) (c) 2026
+# Author: Ram Kumar G  (c) 2026
 
 import sys
 import os

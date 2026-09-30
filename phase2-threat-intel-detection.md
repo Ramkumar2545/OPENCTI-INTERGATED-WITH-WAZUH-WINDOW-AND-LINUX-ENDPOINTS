@@ -4,7 +4,7 @@
 
 - Click the profile icon (top right) → **Profile** → scroll to the **API Access** section — this is where the token lives.
 
-ss/1.png
+![Profile menu → Profile](ss/1.png)
 
 - Under **API Access**, click **Generate Token** to create a new token for this integration, rather than reusing your personal login session for a script.
 - Give it a clear **Name** (e.g. `wazuh-opencti-integration`) so it's identifiable later in the token table alongside any others (like your `Base token`).
@@ -12,7 +12,7 @@ ss/1.png
 - Copy the token immediately (it's masked afterward, e.g. `***eb99`) and store it in your script's env var / secrets file — never hardcode it in custom-opencti.py.
 - Note the **OpenCTI URL** (server IP + port) alongside the token — the script needs both to authenticate against the GraphQL API.
 
-  ![API Access panel — OpenCTI version, API key, required headers](phase2-assets/02-api-access.png)
+![API Access panel — OpenCTI version, API key, required headers](ss/2.png)
 
 **Open the firewall path between Wazuh and OpenCTI**
 
@@ -36,4 +36,4 @@ curl -X POST \
   -d '{"query": "{ about { version } }"}'
 ```
 
-  ![Successful version check from the Wazuh host terminal](phase2-assets/03-curl-test-result.png)
+![Successful version check from the Wazuh host terminal](ss/3.png)
